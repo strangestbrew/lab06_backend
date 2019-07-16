@@ -21,13 +21,24 @@ app.get('/location', (request, response) => {
 
 app.get('/weather', (request, response) => {
   try {
-    const geoData = require('./data/geo.json');
-    const location = new Location(request.query.data, geoData);
-    response.send(location);
+    const weatherData = require('./data/darksky.json');
+    const weatherResponse = [];
+    for (let i = 0; i < 8; i++) {
+      weatherResponse.push(new Weather(request.query.data, weatherData, i));
+    }
+
+    response.send(weatherResponse);
   } catch (error) {
     response.status(400).send({ 'error': error });
   }
 });
+
+function Weather(query, weatherData, whatDay) {
+  this.forcast = weatherData.daily.data[whatDay].summary;
+  let tempTime = Date(weatherData.daily.data[whatDay].time).toString().split(' ');
+  tempTime = tempTime.splice(0, 4).join(' ');
+  this.time = tempTime;
+}
 
 function Location(query, geoData) {
   this.search_query = query;
