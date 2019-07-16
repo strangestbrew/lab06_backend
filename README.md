@@ -14,9 +14,20 @@ Estimate of time needed to complete: 1hr
 
 Start time: 10:37
 
-Finish time: _____
+Finish time: 11:35
 
-Actual time needed to complete: _____
+Actual time needed to complete: 1hr
+
+Number and name of feature: Weather
+- As a user, I want to request current weather information so that I can learn more about the typical weather patterns in the location.
+
+Estimate of time needed to complete: 1hr
+
+Start time: 11:37
+
+Finish time: 
+
+Actual time needed to complete: 
 
 # Project Name
 City Explorer
