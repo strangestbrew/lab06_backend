@@ -11,6 +11,8 @@ app.use(cors());
 
 app.get('/location', (request, response) => {
   try {
+    if (request.query.data !== 'Lynnwood')
+      throw { status: 500, responseText: 'Sorry, We only have data on Lynnwood' };
     const geoData = require('./data/geo.json');
     const location = new Location(request.query.data, geoData);
     response.send(location);
@@ -21,6 +23,8 @@ app.get('/location', (request, response) => {
 
 app.get('/weather', (request, response) => {
   try {
+    if (request.query.data !== 'Los Angeles')
+      throw { status: 500, responseText: 'Sorry, We only have weather on Los Angeles' };
     const weatherData = require('./data/darksky.json');
     const weatherResponse = [];
     for (let i = 0; i < 8; i++) {
