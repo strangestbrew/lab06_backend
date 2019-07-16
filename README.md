@@ -7,7 +7,7 @@ Day One: Lyndsey and Ben
 **Version**: 1.0.0 (increment the patch/fix version number if you make more commits past your first submission)
 
 # User Stories
-Number and name of feature: Locations 
+Number and name of feature: (1) Locations 
 - As a user, I want to enter the name of a location so that I do not need to look up the latitude and longitude every time I learn about a new location.
 
 Estimate of time needed to complete: 1hr
@@ -18,16 +18,30 @@ Finish time: 11:35
 
 Actual time needed to complete: 1hr
 
-Number and name of feature: Weather
+
+Number and name of feature: (2) Weather
 - As a user, I want to request current weather information so that I can learn more about the typical weather patterns in the location.
 
 Estimate of time needed to complete: 1hr
 
 Start time: 11:37
 
-Finish time: 
+Finish time: 11:56
 
-Actual time needed to complete: 
+Actual time needed to complete: about 20 minutes
+
+
+Number and name of feature: (3) Errors
+- As a user, I want to request current weather information so that I can learn more about the typical weather patterns in the location.
+
+Estimate of time needed to complete: 1hr
+
+Start time: 12:20
+
+Finish time: 12:45
+
+Actual time needed to complete: about 20 mins
+
 
 # Project Name
 City Explorer
