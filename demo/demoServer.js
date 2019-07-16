@@ -8,6 +8,8 @@ const cors = require('cors');
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
+
+
 app.get('/location', (request, response) => {
   try {
     const geoData = require('./data/geo.json');
