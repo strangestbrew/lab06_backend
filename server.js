@@ -19,6 +19,8 @@ app.get('/location', searchToLatLong);
 
 app.get('/weather', getWeather);
 
+app.get('/events', getEvents);
+
 // Helper Functions
 
 function searchToLatLong(request, response) {
@@ -32,13 +34,6 @@ function searchToLatLong(request, response) {
     .catch(err => {
       response.send(err);
     });
-}
-
-function Location(query, res) {
-  this.search_query = query;
-  this.formatted_query = res.results[0].formatted_address;
-  this.latitude = res.results[0].geometry.location.lat;
-  this.longitude = res.results[0].geometry.location.lng;
 }
 
 function getWeather(request, response) {
@@ -57,9 +52,42 @@ function getWeather(request, response) {
     });
 }
 
+function getEvents(request, response) {
+  const url = `https://www.eventbriteapi.com/v3/events/search?location.latitude=${request.query.data.latitude}&location.longitude=${request.query.data.longitude}&token=${process.env.EVENTBRITE_API_KEY}`
+
+  return superagent.get(url)
+    .then(res => {
+      const eventEntries = res.body.events.map(eventObj => {
+        return new Event(eventObj);
+      })
+      response.send(eventEntries);
+    })
+    .catch(err => {
+      response.send(err);
+    });
+}
+
+
+// Constructors - Data Formatters
+
+function Location(query, res) {
+  this.search_query = query;
+  this.formatted_query = res.results[0].formatted_address;
+  this.latitude = res.results[0].geometry.location.lat;
+  this.longitude = res.results[0].geometry.location.lng;
+}
+
 function Weather(day) {
   this.forecast = day.summary;
   this.time = new Date(day.time * 1000).toString().slice(0, 15);
+}
+
+function Event(eventObj) {
+  this.link = eventObj.url;
+  this.name = eventObj.name.text;
+  this.event_date = Date(eventObj.start.local).split(' ').slice(0, 4).join(' ');
+  this.summary = eventObj.summary;
+
 }
 
 // Make sure the server is listening for requests
