@@ -1,57 +1,66 @@
-'use strict'
+'use strict';
 
+// Load Environment Variables from the .env file
 require('dotenv').config();
+
+// Application Dependencies
 const express = require('express');
-const app = express();
 const cors = require('cors');
+const superagent = require('superagent');
 
+// Application Setup
 const PORT = process.env.PORT || 3000;
-
+const app = express();
 app.use(cors());
 
-app.get('/location', (request, response) => {
-  try {
-    if (request.query.data !== 'Lynnwood')
-      throw { status: 500, responseText: 'Sorry, We only have data on Lynnwood' };
-    const geoData = require('./data/geo.json');
-    const location = new Location(request.query.data, geoData);
-    response.send(location);
-  } catch (error) {
-    response.status(400).send({ 'error': error });
-  }
-});
+// API Routes
 
-app.get('/weather', (request, response) => {
-  try {
-    if (request.query.data !== 'Los Angeles')
-      throw { status: 500, responseText: 'Sorry, We only have weather on Los Angeles' };
-    const weatherData = require('./data/darksky.json');
-    const weatherResponse = [];
-    for (let i = 0; i < 8; i++) {
-      weatherResponse.push(new Weather(request.query.data, weatherData, i));
-    }
+app.get('/location', searchToLatLong);
 
-    response.send(weatherResponse);
-  } catch (error) {
-    response.status(400).send({ 'error': error });
-  }
-});
+app.get('/weather', getWeather);
 
-function Weather(query, weatherData, whatDay) {
-  this.forcast = weatherData.daily.data[whatDay].summary;
-  let tempTime = Date(weatherData.daily.data[whatDay].time).toString().split(' ');
-  tempTime = tempTime.splice(0, 4).join(' ');
-  this.time = tempTime;
+// Helper Functions
+
+function searchToLatLong(request, response) {
+  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${request.query.data}&key=${process.env.GEOCODE_API_KEY}`
+
+  return superagent.get(url)
+    .then(res => {
+      const location = new Location(request.query.data, JSON.parse(res.text));
+      response.send(location);
+    })
+    .catch(err => {
+      response.send(err);
+    });
 }
 
-function Location(query, geoData) {
+function Location(query, res) {
   this.search_query = query;
-  this.formatted_query = geoData.results[0].formatted_address;
-  this.latitude = geoData.results[0].geometry.location.lat;
-  this.longitude = geoData.results[0].geometry.location.lat;
+  this.formatted_query = res.results[0].formatted_address;
+  this.latitude = res.results[0].geometry.location.lat;
+  this.longitude = res.results[0].geometry.location.lng;
 }
 
+function getWeather(request, response) {
+  const url = `https://api.darksky.net/forecast/${process.env.WEATHER_API_KEY}/${request.query.data.latitude},${request.query.data.longitude}`
 
-app.listen(PORT, () => {
-  console.log('Listening on port: ' + PORT);
-})
+  return superagent.get(url)
+    .then(res => {
+      const weatherEntries = res.body.daily.data.map(day => {
+        return new Weather(day);
+      })
+
+      response.send(weatherEntries);
+    })
+    .catch(error => {
+      response.send(error);
+    });
+}
+
+function Weather(day) {
+  this.forecast = day.summary;
+  this.time = new Date(day.time * 1000).toString().slice(0, 15);
+}
+
+// Make sure the server is listening for requests
+app.listen(PORT, () => console.log(`App is up on ${PORT}`));
