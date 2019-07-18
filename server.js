@@ -22,7 +22,7 @@ app.use(cors());
 
 // API Routes
 
-app.get('/location', searchToLatLong);
+app.get('/location', getLocation);
 
 app.get('/weather', getWeather);
 
@@ -30,18 +30,62 @@ app.get('/events', getEvents);
 
 // Helper Functions
 
-function searchToLatLong(request, response) {
-  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${request.query.data}&key=${process.env.GEOCODE_API_KEY}`
+function getLocation(query) {
 
-  return superagent.get(url)
-    .then(res => {
-      const location = new Location(request.query.data, JSON.parse(res.text));
-      response.send(location);
+  // What must we do to cache the API results ...
+  // Do we already have this in the database?
+  //    If so, Return it to the client
+  // If not
+  //    Go to google and get it
+  //    Add it to the database
+  //    Return it to the client
+
+  const SQL = `SELECT * FROM locations WHERE search_query=$1;`;
+  const values = [query];
+
+  return client.query(SQL, values)
+    .then(result => {
+      if (result.rowCount > 0) {
+        console.log('From SQL');
+        return result.rows[0];
+      } else {
+        const _URL = `https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${process.env.GEOCODE_API_KEY}`;
+        return superagent.get(_URL)
+          .then(data => {
+            console.log('FROM API');
+            if (!data.body.results.length) { throw 'No Data'; }
+            else {
+              let location = new Location(query, data.body.results[0]);
+              let NEWSQL = `INSERT INTO locations (search_query,formatted_query,latitude,longitude) VALUES($1,$2,$3,$4) RETURNING id`;
+              let newValues = Object.values(location);
+              return client.query(NEWSQL, newValues)
+                .then(results => {
+                  location.id = results.rows[0].id;
+                  return location;
+                })
+                .catch(console.error);
+            }
+          });
+      }
     })
-    .catch(err => {
-      response.send(err);
-    });
+    .catch(console.error);
 }
+
+
+//BEN'S searchToLatLong FUNCT
+// function searchToLatLong(request, response) {
+//   const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${request.query.data}&key=${process.env.GEOCODE_API_KEY}`
+//   return superagent.get(url)
+//     .then(res => {
+//       const location = new Location(request.query.data, JSON.parse(res.text));
+//       response.send(location);
+//     })
+//     .catch(err => {
+//       response.send(err);
+//     });
+// }
+
+
 
 function getWeather(request, response) {
   const url = `https://api.darksky.net/forecast/${process.env.WEATHER_API_KEY}/${request.query.data.latitude},${request.query.data.longitude}`
@@ -82,7 +126,35 @@ function Location(query, res) {
   this.formatted_query = res.results[0].formatted_address;
   this.latitude = res.results[0].geometry.location.lat;
   this.longitude = res.results[0].geometry.location.lng;
+  
 }
+
+//saving locations to database
+Location.prototype.save = function() {
+  let SQL = `
+    INSERT INTO locations
+    (serch_query, formatted_query, latitude, longitude)
+    VALUES($1,$2,$3,$4)
+    RETURNING id
+  `;
+  let values = Object.values(this);
+  return client.query(SQL,values);
+}
+
+// const newLocal = Location.lookupLocation = (handler) => {
+//   const SQL = `SELECT * FROM locations WHERE search_query=$1`;
+//   const values = [handler.query];
+//   return client.query(SQL, values)
+//     .then(results => {
+//       if (results.rowCount > 0) {
+//         handler.cacheHit(results);
+//       }
+//       else {
+//         handler.cacheMiss();
+//       }
+//     })
+//     .catch(console.error);
+// };
 
 function Weather(day) {
   this.forecast = day.summary;
