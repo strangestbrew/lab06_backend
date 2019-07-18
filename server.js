@@ -20,7 +20,11 @@ const app = express();
 app.use(cors());
 
 
-// API Routes
+// API Routes (handlers)
+app.get('/', (req, res) => {
+  console.log('slash route');
+  res.send('slash route');
+});
 
 app.get('/location', getLocation);
 
@@ -28,65 +32,90 @@ app.get('/weather', getWeather);
 
 app.get('/events', getEvents);
 
-// Helper Functions
+//Error handler
 
-function getLocation(query) {
 
-  // What must we do to cache the API results ...
-  // Do we already have this in the database?
-  //    If so, Return it to the client
-  // If not
-  //    Go to google and get it
-  //    Add it to the database
-  //    Return it to the client
+// Helper Functions and handlers
 
-  const SQL = `SELECT * FROM locations WHERE search_query=$1;`;
-  const values = [query];
+//location:
+function getLocation(request,response) {
+  console.log('request getting hit');
 
-  return client.query(SQL, values)
-    .then(result => {
-      if (result.rowCount > 0) {
-        console.log('From SQL');
-        return result.rows[0];
-      } else {
-        const _URL = `https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${process.env.GEOCODE_API_KEY}`;
-        return superagent.get(_URL)
-          .then(data => {
-            console.log('FROM API');
-            if (!data.body.results.length) { throw 'No Data'; }
-            else {
-              let location = new Location(query, data.body.results[0]);
-              let NEWSQL = `INSERT INTO locations (search_query,formatted_query,latitude,longitude) VALUES($1,$2,$3,$4) RETURNING id`;
-              let newValues = Object.values(location);
-              return client.query(NEWSQL, newValues)
-                .then(results => {
-                  location.id = results.rows[0].id;
-                  return location;
-                })
-                .catch(console.error);
-            }
-          });
-      }
-    })
-    .catch(console.error);
+  const locationHandler = {
+
+    query: request.query.data,
+
+    cacheHit: results => {
+      console.log('Got data from SQL');
+      response.send(results.rows[0]);
+    },
+
+    cacheMiss: () => {
+      Location.fetchLocation(request.query.data)
+        .then(data => response.send(data));
+    }
+  };
+
+  Location.lookupLocation(locationHandler);
+
 }
 
+//Location Constructor
+function Location(query, res) {
+  this.search_query = query;
+  this.formatted_query = res.results.formatted_address;
+  this.latitude = res.results.geometry.location.lat;
+  this.longitude = res.results.geometry.location.lng;
+}
 
-//BEN'S searchToLatLong FUNCT
-// function searchToLatLong(request, response) {
-//   const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${request.query.data}&key=${process.env.GEOCODE_API_KEY}`
-//   return superagent.get(url)
-//     .then(res => {
-//       const location = new Location(request.query.data, JSON.parse(res.text));
-//       response.send(location);
-//     })
-//     .catch(err => {
-//       response.send(err);
-//     });
-// }
+Location.fetchLocation = query => {
+  const _URL = `https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${process.env.GEOCODE_API_KEY}`;
+  return superagent.get(_URL)
+    .then( data => {
+      console.log('Got data from API');
+      if (!data.body.results.length ) {throw 'No Data';}
+      else {
+        // Create an instance and save it
+        let location = new Location(query, data.body.results[0]);
+        return location.save()
+          .then( result => {
+            location.id = result.rows[0].id;
+            return location;
+          });
+        return location;
+      }
+    });
+};
+
+Location.lookupLocation = (handler) => {
+
+  const SQL = `SELECT * FROM locations WHERE search_query=$1`;
+  const values = [handler.query];
+
+  return client.query( SQL, values )
+    .then( results => {
+      if( results.rowCount > 0 ) {
+        handler.cacheHit(results);
+      }
+      else {
+        handler.cacheMiss();
+      }
+    })
+    .catch( console.error );
+
+};
+
+//saving locations to database
+Location.prototype.save = function() {
+  let SQL = `INSERT INTO locations(serch_query, formatted_query, latitude, longitude)VALUES($1,$2,$3,$4)RETURNING id`;
+  let values = Object.values(this);
+  return client.query(SQL,values);
+};
 
 
 
+
+//events and weather - deal with later
 function getWeather(request, response) {
   const url = `https://api.darksky.net/forecast/${process.env.WEATHER_API_KEY}/${request.query.data.latitude},${request.query.data.longitude}`
 
@@ -118,29 +147,6 @@ function getEvents(request, response) {
     });
 }
 
-
-// Constructors - Data Formatters
-
-function Location(query, res) {
-  this.search_query = query;
-  this.formatted_query = res.results[0].formatted_address;
-  this.latitude = res.results[0].geometry.location.lat;
-  this.longitude = res.results[0].geometry.location.lng;
-  
-}
-
-//saving locations to database
-Location.prototype.save = function() {
-  let SQL = `
-    INSERT INTO locations
-    (serch_query, formatted_query, latitude, longitude)
-    VALUES($1,$2,$3,$4)
-    RETURNING id
-  `;
-  let values = Object.values(this);
-  return client.query(SQL,values);
-}
-
 function Weather(day) {
   this.forecast = day.summary;
   this.time = new Date(day.time * 1000).toString().slice(0, 15);
@@ -151,8 +157,7 @@ function Event(eventObj) {
   this.name = eventObj.name.text;
   this.event_date = Date(eventObj.start.local).split(' ').slice(0, 4).join(' ');
   this.summary = eventObj.summary;
-
 }
 
 // Make sure the server is listening for requests
-app.listen(PORT, () => console.log(`App is up on ${PORT}`));
+app.listen(PORT, () => console.log(`City Explorer is up on ${PORT}`));
