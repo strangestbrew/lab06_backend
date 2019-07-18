@@ -14,7 +14,7 @@ const PORT = process.env.PORT || 3000;
 const client = new pg.Client(process.env.DATABASE_URL);
 client.connect();
 client.on('err', err => console.log(err));
-//TODO: FIGURE OUT DATABASE URL
+
 
 const app = express();
 app.use(cors());
@@ -140,21 +140,6 @@ Location.prototype.save = function() {
   let values = Object.values(this);
   return client.query(SQL,values);
 }
-
-// const newLocal = Location.lookupLocation = (handler) => {
-//   const SQL = `SELECT * FROM locations WHERE search_query=$1`;
-//   const values = [handler.query];
-//   return client.query(SQL, values)
-//     .then(results => {
-//       if (results.rowCount > 0) {
-//         handler.cacheHit(results);
-//       }
-//       else {
-//         handler.cacheMiss();
-//       }
-//     })
-//     .catch(console.error);
-// };
 
 function Weather(day) {
   this.forecast = day.summary;
