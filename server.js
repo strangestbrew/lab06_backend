@@ -62,10 +62,12 @@ function getLocation(request,response) {
 
 //Location Constructor
 function Location(query, res) {
+  console.log("Im the problem");
   this.search_query = query;
-  this.formatted_query = res.results.formatted_address;
-  this.latitude = res.results.geometry.location.lat;
-  this.longitude = res.results.geometry.location.lng;
+  //throwing errors in ubuntu terminal
+  this.formatted_query = res.formatted_address;
+  this.latitude = res.geometry.location.lat;
+  this.longitude = res.geometry.location.lng;
 }
 
 Location.fetchLocation = query => {
@@ -76,6 +78,7 @@ Location.fetchLocation = query => {
       if (!data.body.results.length ) {throw 'No Data';}
       else {
         // Create an instance and save it
+        //throwing errors in ubuntu terminal 
         let location = new Location(query, data.body.results[0]);
         return location.save()
           .then( result => {
@@ -107,7 +110,7 @@ Location.lookupLocation = (handler) => {
 
 //saving locations to database
 Location.prototype.save = function() {
-  let SQL = `INSERT INTO locations(serch_query, formatted_query, latitude, longitude)VALUES($1,$2,$3,$4)RETURNING id`;
+  let SQL = `INSERT INTO locations(search_query, formatted_query, latitude, longitude)VALUES($1,$2,$3,$4)RETURNING id`;
   let values = Object.values(this);
   return client.query(SQL,values);
 };
