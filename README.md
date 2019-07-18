@@ -3,11 +3,12 @@
 
 **Author**: 
 Day One: Lyndsey and Ben 
+Day Two: Lyndsey and Ben
 
 **Version**: 1.0.0 (increment the patch/fix version number if you make more commits past your first submission)
 
 # User Stories
-Number and name of feature: (1) Locations 
+*Number and name of feature: (1) Locations*
 - As a user, I want to enter the name of a location so that I do not need to look up the latitude and longitude every time I learn about a new location.
 
 Estimate of time needed to complete: 1hr
@@ -19,7 +20,7 @@ Finish time: 11:35
 Actual time needed to complete: 1hr
 
 
-Number and name of feature: (2) Weather
+*Number and name of feature: (2) Weather*
 - As a user, I want to request current weather information so that I can learn more about the typical weather patterns in the location.
 
 Estimate of time needed to complete: 1hr
@@ -31,7 +32,7 @@ Finish time: 11:56
 Actual time needed to complete: about 20 minutes
 
 
-Number and name of feature: (3) Errors
+*Number and name of feature: (3) Errors*
 - As a user, I want to request current weather information so that I can learn more about the typical weather patterns in the location.
 
 Estimate of time needed to complete: 1hr
@@ -41,6 +42,57 @@ Start time: 12:20
 Finish time: 12:45
 
 Actual time needed to complete: about 20 mins
+
+
+*Number and name of feature: (4) Data formatting*
+-As a user, I want the application to provide properly formatted data so that I can view similar data for any location I choose. 
+
+Estimate of time needed to complete: 1hr
+
+Start time: 9:07
+
+Finish time: 9:36
+
+Actual time needed to complete: about 30 mins
+
+
+*Number and name of feature: (5) Locations*
+-As a user, I want to enter the name of a location so that I do not need to look up the latitude and longitude every time I learn about a new location.
+
+Estimate of time needed to complete: 1hr
+
+Start time: 9:38
+
+Finish time: 9:56
+
+Actual time needed to complete: almost 20 minutes
+
+
+
+*Number and name of feature: (6) Weather*
+-As a user, I want to request current weather information so that I can learn more about the typical weather patterns in the location
+
+Estimate of time needed to complete: 1hr
+
+Start time: 9:56
+
+Finish time: 10:25
+
+Actual time needed to complete: about half an hour
+
+
+*Number and name of feature: (7) Eventbrite*
+-As a user, I want to request information about events in the area so that users can learn about what is taking place in the location
+
+Estimate of time needed to complete: 1hr
+
+Start time: 10:30
+
+Finish time: 11:59
+
+Actual time needed to complete: hour and twenty minutes
+
+
 
 
 # Project Name
