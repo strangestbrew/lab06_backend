@@ -11,8 +11,14 @@ const pg = require('pg');
 
 // Application Setup
 const PORT = process.env.PORT || 3000;
+const client = new pg.Client(process.env.DATABASE_URL);
+client.connect();
+client.on('err', err => console.log(err));
+//TODO: FIGURE OUT DATABASE URL
+
 const app = express();
 app.use(cors());
+
 
 // API Routes
 
