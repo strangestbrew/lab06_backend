@@ -32,6 +32,9 @@ app.get('/weather', getWeather);
 
 app.get('/events', getEvents);
 
+app.get('/movies', getMovies);
+
+
 //Error handler
 
 
@@ -115,7 +118,7 @@ Location.prototype.save = function() {
 
 
 
-//events and weather - deal with later
+//Weather
 function getWeather(request, response) {
   const url = `https://api.darksky.net/forecast/${process.env.WEATHER_API_KEY}/${request.query.data.latitude},${request.query.data.longitude}`
 
@@ -132,6 +135,13 @@ function getWeather(request, response) {
     });
 }
 
+function Weather(day) {
+  this.forecast = day.summary;
+  this.time = new Date(day.time * 1000).toString().slice(0, 15);
+}
+
+
+//Events
 function getEvents(request, response) {
   const url = `https://www.eventbriteapi.com/v3/events/search?location.latitude=${request.query.data.latitude}&location.longitude=${request.query.data.longitude}&token=${process.env.EVENTBRITE_API_KEY}`
 
@@ -147,17 +157,47 @@ function getEvents(request, response) {
     });
 }
 
-function Weather(day) {
-  this.forecast = day.summary;
-  this.time = new Date(day.time * 1000).toString().slice(0, 15);
-}
-
 function Event(eventObj) {
   this.link = eventObj.url;
   this.name = eventObj.name.text;
   this.event_date = Date(eventObj.start.local).split(' ').slice(0, 4).join(' ');
   this.summary = eventObj.summary;
 }
+
+
+//movies
+function getMovies(request, response) {
+  const stringQuery = request.query.data.formatted_query.slice(0, request.query.data.formatted_query.indexOf(','));
+
+  const url = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIE_API_KEY}&query=${stringQuery}`;
+
+  console.log('hitting movies');
+  console.log(stringQuery);
+
+  return superagent.get(url)
+    .then(res => {
+      console.log('movies responding', res);
+      const movieEntries = res.body.results.map(movieObj => {
+        return new Movie(movieObj);
+      })
+      response.send(movieEntries);
+    })
+    .catch(err => {
+      response.send(err);
+    });
+}
+
+function Movie(movieObj) {
+  this.title = movieObj.title;
+  this.overview = movieObj.overview;
+  this.average_votes = movieObj.vote_average;
+  this.total_votes = movieObj.vote_count;
+  this.image_url = 'https://image.tmdb.org/t/p/w185_and_h278_bestv2/'+ movieObj.poster_path;
+  this.popularity = movieObj.popularity;
+  this.released_on = movieObj.release_date;
+}
+
+
 
 // Make sure the server is listening for requests
 app.listen(PORT, () => console.log(`City Explorer is up on ${PORT}`));
