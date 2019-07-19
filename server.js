@@ -79,7 +79,6 @@ Location.fetchLocation = query => {
       if (!data.body.results.length ) {throw 'No Data';}
       else {
         // Create an instance and save it
-        //throwing errors in ubuntu terminal
         let location = new Location(query, data.body.results[0]);
         return location.save()
           .then( result => {

@@ -4,6 +4,7 @@
 **Author**: 
 Day One: Lyndsey and Ben 
 Day Two: Lyndsey and Ben
+Day Three: Lyndsey and Hanna
 
 **Version**: 1.0.0 (increment the patch/fix version number if you make more commits past your first submission)
 
