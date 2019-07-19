@@ -35,19 +35,50 @@ app.get('/events', getEvents);
 app.get('/movies', getMovies);
 
 
-//Error handler
 
+//lookup function for DB
+function lookup(options) {
+  const SQL = `SELECT * FROM ${options.tableName} WHERE location_id=$1`;
+  const values = [options.location];
 
-// Helper Functions and handlers
+  client.query(SQL, values)
+    .then(result => {
+      if (result.rowCount > 0 ) {
+        options.cacheHit(result);
+      } else {
+        options.cacheMiss();
+      }
+    })
+    .catch(error => {
+      console.error(error)});
+}
+
+//delete resources
+function deleteByLocationId (table, city) {
+  const SQL = `DELETE from ${table} WHERE location_id=${city};`;
+  return client.query(SQL);
+}
+
+//timeout
+cosnt timeouts = {
+  weathers: 15 *1000
+}
+
+//Location Constructor
+function Location(query, res) {
+  this.tableName = 'locations';
+  this.search_query = query;
+  this.formatted_query = res.formatted_address;
+  this.latitude = res.geometry.location.lat;
+  this.longitude = res.geometry.location.lng;
+}
+
 
 //location:
 function getLocation(request,response) {
   console.log('request getting hit');
-
   const locationHandler = {
-
     query: request.query.data,
-
     cacheHit: results => {
       console.log('Got data from SQL');
       response.send(results.rows[0]);
@@ -60,16 +91,8 @@ function getLocation(request,response) {
   };
 
   Location.lookupLocation(locationHandler);
-
 }
 
-//Location Constructor
-function Location(query, res) {
-  this.search_query = query;
-  this.formatted_query = res.formatted_address;
-  this.latitude = res.geometry.location.lat;
-  this.longitude = res.geometry.location.lng;
-}
 
 Location.fetchLocation = query => {
   const _URL = `https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${process.env.GEOCODE_API_KEY}`;
@@ -79,7 +102,6 @@ Location.fetchLocation = query => {
       if (!data.body.results.length ) {throw 'No Data';}
       else {
         // Create an instance and save it
-        //throwing errors in ubuntu terminal
         let location = new Location(query, data.body.results[0]);
         return location.save()
           .then( result => {
