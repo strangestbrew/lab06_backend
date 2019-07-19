@@ -29,7 +29,7 @@ CREATE TABLE events (
     FOREIGN KEY (location_id) REFERENCES locations (id)
   );
 
-  CREATE TABLE movies ( 
+CREATE TABLE movies ( 
     id SERIAL PRIMARY KEY, 
     title VARCHAR(255),
     overview VARCHAR(255),
