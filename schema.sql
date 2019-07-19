@@ -33,7 +33,6 @@ CREATE TABLE events (
   FOREIGN KEY (location_id) REFERENCES locations (id)
 );
 
-
 CREATE TABLE yelps ( 
     id SERIAL PRIMARY KEY, 
     name VARCHAR(255), 
