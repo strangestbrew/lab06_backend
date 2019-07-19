@@ -28,9 +28,8 @@ app.get('/location', getLocation);
 app.get('/weather', getWeather);
 app.get('/events', getEvents);
 // app.get('/yelp', getYelp);
-// app.get('/events', getData);
-// app.get('/movies', getData);
-// app.get('/trails', getData);
+app.get('/movies', getMovies);
+// app.get('/trails', getTrails);
 
 // Make sure the server is listening for requests
 app.listen(PORT, () => console.log(`Listening on ${PORT}`));
@@ -68,7 +67,11 @@ function deleteByLocationId(table, city) {
 }
 
 const timeouts = {
-  weathers: 15 * 1000
+  weathers: 15 * 1000,
+  events: 15 * 1000,
+  yelps: 15 * 1000,
+  movies: 15 * 1000,
+  trails: 15 * 1000
 }
 
 // #endregion HELPER FUNCTIONS
@@ -252,6 +255,63 @@ function getEvents(request, response) {
 // #endregion EVENT
 
 
+// #region -------------------- MOVIE --------------------
+
+
+function Movie(movieObj) {
+  this.title = movieObj.title;
+  this.overview = movieObj.overiew;
+  this.average_votes = movieObj.vote_average;
+  this.total_votes = movieObj.vote_count;
+  this.image_url = `http://image.tmdb.org/t/p/w185${movieObj.poster_path}`;
+  this.popularity = movieObj.popularity;
+  this.released_on = movieObj.release_date;
+}
+
+
+Movie.tableName = 'movies';
+Movie.lookup = lookup;
+
+Movie.prototype.save = function (location_id) {
+  const SQL = `INSERT INTO ${this.tableName} (title, overview, average_votes, total_votes, image_url, popularity, released_on, location_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`;
+  const values = [this.title, this.overview, this.average_votes, this.total_votes, this.image_url, this.popularity, this.released_on, location_id];
+
+  client.query(SQL, values);
+};
+
+
+function getMovies(request, response) {
+  Movie.lookup({
+    tableName: Movie.tableName,
+
+    location: request.query.data.id,
+
+    cacheHit: function (result) {
+      response.send(result.rows);
+    },
+
+    cacheMiss: function () {
+      const url = `https://api.themoviedb.org/3/discover/movie/?sort_by=popularity.desc&api_key=${process.env.MOVIE_API_KEY}`;
+
+      superagent.get(url)
+        .then(result => {
+          // console.log(Object.values(result.body.results[0]));
+          const movies = result.body.results.map(movieData => {
+            const movie = new Movie(movieData);
+            movie.save(request.query.data.id);
+            return movie;
+          });
+
+          response.send(movies);
+        })
+        .catch(error => handleError(error, response));
+    }
+  });
+}
+
+// #endregion MOVIE
+
+
 // #region -------------------- YELP --------------------
 
 function Yelp(business) {
@@ -263,22 +323,6 @@ function Yelp(business) {
 }
 
 // #endregion YELP
-
-
-// #region -------------------- MOVIE --------------------
-
-
-function Movie(eventObj) {
-  this.title = eventObj.url;
-  this.image_url = eventObj.name.text;
-  this.overview = Date(eventObj.start.local).split(' ').slice(0, 4).join(' ');
-  this.released_on = eventObj.summary;
-  this.total_votes = eventObj.summary;
-  this.average_votes = eventObj.summary;
-  this.popularity = eventObj.summary;
-}
-
-// #endregion MOVIE
 
 
 // #region -------------------- TRAIL --------------------
