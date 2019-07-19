@@ -1,221 +1,259 @@
 'use strict';
 
-// Load Environment Variables from the .env file
-require('dotenv').config();
+
+// #region -------------------- SETUP --------------------
 
 // Application Dependencies
 const express = require('express');
-const cors = require('cors');
 const superagent = require('superagent');
 const pg = require('pg');
+const cors = require('cors');
+
+// Load environment variables from .env file
+require('dotenv').config();
 
 // Application Setup
+const app = express();
 const PORT = process.env.PORT || 3000;
 
-const client = new pg.Client(process.env.DATABASE_URL);
-client.connect();
-client.on('err', err => console.log(err));
-
-const app = express();
 app.use(cors());
 
-// Make sure the server is listening for requests
-app.listen(PORT, () => console.log(`App is up on ${PORT}`));
+// Database Setup
+const client = new pg.Client(process.env.DATABASE_URL);
+client.connect();
+client.on('error', err => console.error(err));
 
 // API Routes
-
 app.get('/location', getLocation);
-
 app.get('/weather', getWeather);
-
-app.get('/yelp', getYelp);
-
+app.get('/events', getEvents);
+// app.get('/yelp', getYelp);
 // app.get('/events', getData);
-
 // app.get('/movies', getData);
-
 // app.get('/trails', getData);
 
-// ---------- LOCATION ------------- //
+// Make sure the server is listening for requests
+app.listen(PORT, () => console.log(`Listening on ${PORT}`));
+
+// #endregion SETUP
 
 
-// Route Handler
-function getLocation(request, response) {
+// #region -------------------- HELPER FUNCTIONS --------------------
 
-  const locationHandler = {
-
-    query: request.query.data,
-
-    cacheHit: (results) => {
-      console.log('Got data from SQL');
-      response.send(results.rows[0]);
-    },
-
-    cacheMiss: () => {
-      Location.fetchLocation(request.query.data)
-        .then(data => response.send(data));
-    },
-  };
-
-  Location.lookupLocation(locationHandler);
-
+// Error handler
+function handleError(err, res) {
+  console.error(err);
+  if (res) res.status(500).send('Sorry, something went wrong');
 }
 
-// Constructor / Normalizer
-function Location(query, data) {
-  this.search_query = query;
-  this.formatted_query = data.formatted_address;
-  this.latitude = data.geometry.location.lat;
-  this.longitude = data.geometry.location.lng;
-}
+// Look for the results in the database
+function lookup(options) {
+  const SQL = `SELECT * FROM ${options.tableName} WHERE location_id=$1;`;
+  const values = [options.location];
 
-// Instance Method: Save a location to the DB
-Location.prototype.save = function () {
-  let SQL = `
-    INSERT INTO locations
-      (search_query,formatted_query,latitude,longitude) 
-      VALUES($1,$2,$3,$4) 
-      RETURNING id
-  `;
-  let values = Object.values(this);
-  return client.query(SQL, values);
-};
-
-// Static Method: Fetch a location from google
-Location.fetchLocation = (query) => {
-  const _URL = `https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${process.env.GEOCODE_API_KEY}`;
-  return superagent.get(_URL)
-    .then(data => {
-      console.log('Got data from API');
-      if (!data.body.results.length) { throw 'No Data'; }
-      else {
-        // Create an instance and save it
-        let location = new Location(query, data.body.results[0]);
-        return location.save()
-          .then(result => {
-            location.id = result.rows[0].id;
-            return location;
-          });
-      }
-    });
-};
-
-// Static Method: Lookup a location in the DB and invoke the proper callback methods based on what you find
-Location.lookupLocation = (handler) => {
-
-  const SQL = `SELECT * FROM locations WHERE search_query=$1`;
-  const values = [handler.query];
-
-  return client.query(SQL, values)
-    .then(results => {
-      if (results.rowCount > 0) {
-        handler.cacheHit(results);
-      }
-      else {
-        handler.cacheMiss();
-      }
-    })
-    .catch(console.error);
-
-};
-
-
-// ---------- WEATHER ------------- //
-
-
-// Route Handler
-function getWeather(request, response) {
-  const handler = {
-
-    location: request.query.data,
-
-    cacheHit: function (result) {
-      response.send(result.rows);
-    },
-
-    cacheMiss: function () {
-      Weather.fetch(request.query.data)
-        .then(results => response.send(results))
-        .catch(console.error);
-    },
-  };
-
-  Weather.lookup(handler);
-
-}
-
-// Weather Constructor/Normalizer
-function Weather(day) {
-  this.forecast = day.summary;
-  this.time = new Date(day.time * 1000).toString().slice(0, 15);
-}
-
-// Instance Method: Save a location to the DB
-Weather.prototype.save = function (id) {
-  const SQL = `INSERT INTO weathers (forecast, time, location_id) VALUES ($1, $2, $3);`;
-  const values = Object.values(this);
-  values.push(id);
-  client.query(SQL, values);
-};
-
-// Static Method: Lookup a location in the DB and invoke the proper callback methods based on what you find
-// Question -- is anything in here other than the table name esoteric to weather? Is there an opportunity to DRY this out?
-Weather.lookup = function (handler) {
-  const SQL = `SELECT * FROM weathers WHERE location_id=$1;`;
-  client.query(SQL, [handler.location.id])
+  client.query(SQL, values)
     .then(result => {
       if (result.rowCount > 0) {
-        console.log('Got data from SQL');
-        handler.cacheHit(result);
+        options.cacheHit(result);
       } else {
-        console.log('Got data from API');
-        handler.cacheMiss();
+        options.cacheMiss();
       }
     })
     .catch(error => handleError(error));
-};
+}
 
-// Static Method: Fetch a location from the weather API
-Weather.fetch = function (location) {
-  const url = `https://api.darksky.net/forecast/${process.env.WEATHER_API_KEY}/${location.latitude},${location.longitude}`;
+function deleteByLocationId(table, city) {
+  const SQL = `DELETE from ${table} WHERE location_id=${city};`;
+  return client.query(SQL);
+}
 
-  return superagent.get(url)
+const timeouts = {
+  weathers: 15 * 1000
+}
+
+// #endregion HELPER FUNCTIONS
+
+
+// #region -------------------- LOCATION --------------------
+
+// Models
+function Location(query, res) {
+  this.tableName = 'locations';
+  this.search_query = query;
+  this.formatted_query = res.body.results[0].formatted_address;
+  this.latitude = res.body.results[0].geometry.location.lat;
+  this.longitude = res.body.results[0].geometry.location.lng;
+}
+
+Location.lookupLocation = (location) => {
+  const SQL = `SELECT * FROM locations WHERE search_query=$1;`;
+  const values = [location.query];
+
+  return client.query(SQL, values)
     .then(result => {
-      const weatherSummaries = result.body.daily.data.map(day => {
-        const summary = new Weather(day);
-        summary.save(location.id);
-        return summary;
+      if (result.rowCount > 0) {
+        location.cacheHit(result);
+      } else {
+        location.cacheMiss();
+      }
+    })
+    .catch(console.error);
+};
+
+Location.prototype = {
+  save: function () {
+    const SQL = `INSERT INTO locations (search_query, formatted_query, latitude, longitude) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING RETURNING id;`;
+    const values = [this.search_query, this.formatted_query, this.latitude, this.longitude];
+
+    return client.query(SQL, values)
+      .then(result => {
+        this.id = result.rows[0].id;
+        return this;
       });
-      return weatherSummaries;
-    });
+  }
 };
 
 
-// ---------- Yelp ------------- //
+function getLocation(request, response) {
+  Location.lookupLocation({
+    tableName: Location.tableName,
+
+    query: request.query.data,
+
+    cacheHit: function (result) {
+      response.send(result.rows[0]);
+    },
+
+    cacheMiss: function () {
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${this.query}&key=${process.env.GEOCODE_API_KEY}`;
+
+      return superagent.get(url)
+        .then(result => {
+          const location = new Location(this.query, result);
+          location.save()
+            .then(location => response.send(location));
+        })
+        .catch(error => handleError(error));
+    }
+  });
+}
+
+// #endregion LOCATION
 
 
-// Route Handler
-function getYelp(request, response) {
-  const handler = {
+// #region -------------------- WEATHER --------------------
 
-    location: request.query.data,
+
+function Weather(day) {
+  this.tableName = 'weathers';
+  this.forecast = day.summary;
+  this.time = new Date(day.time * 1000).toString().slice(0, 15);
+  this.created_at = Date.now();
+}
+
+Weather.tableName = 'weathers';
+Weather.lookup = lookup;
+Weather.deleteByLocationId = deleteByLocationId;
+
+Weather.prototype.save = function (location_id) {
+  const SQL = `INSERT INTO ${this.tableName} (forecast, time, created_at, location_id) VALUES ($1, $2, $3, $4);`;
+  const values = [this.forecast, this.time, this.created_at, location_id];
+
+  client.query(SQL, values);
+};
+
+function getWeather(request, response) {
+  Weather.lookup({
+    tableName: Weather.tableName,
+
+    location: request.query.data.id,
+
+    cacheHit: function (result) {
+      let ageOfResults = (Date.now() - result.rows[0].created_at);
+      if (ageOfResults > timeouts.weathers) {
+        console.log('Stale weather data for location: ', request.query.data.search_query);
+        Weather.deleteByLocationId(Weather.tableName, request.query.data.id);
+        this.cacheMiss();
+      } else {
+        response.send(result.rows);
+      }
+    },
+
+    cacheMiss: function () {
+      const url = `https://api.darksky.net/forecast/${process.env.WEATHER_API_KEY}/${request.query.data.latitude},${request.query.data.longitude}`;
+
+      superagent.get(url)
+        .then(result => {
+          const weatherSummaries = result.body.daily.data.map(day => {
+            const summary = new Weather(day);
+            summary.save(request.query.data.id);
+            return summary;
+          });
+          response.send(weatherSummaries);
+        })
+        .catch(error => handleError(error, response));
+    }
+  });
+}
+
+// #endregion WEATHER
+
+
+// #region -------------------- EVENT --------------------
+
+function Event(event) {
+  this.tableName = 'events';
+  this.link = event.url;
+  this.name = event.name.text;
+  this.event_date = new Date(event.start.local).toString().slice(0, 15);
+  this.summary = event.summary;
+}
+
+Event.tableName = 'events';
+Event.lookup = lookup;
+
+Event.prototype.save = function (location_id) {
+  const SQL = `INSERT INTO ${this.tableName} (link, name, event_date, summary, location_id) VALUES ($1, $2, $3, $4, $5);`;
+  const values = [this.link, this.name, this.event_date, this.summary, location_id];
+
+  client.query(SQL, values);
+};
+
+
+function getEvents(request, response) {
+  Event.lookup({
+    tableName: Event.tableName,
+
+    location: request.query.data.id,
 
     cacheHit: function (result) {
       response.send(result.rows);
     },
 
     cacheMiss: function () {
-      Yelp.fetch(request.query.data)
-        .then(results => response.send(results))
-        .catch(console.error);
-    },
-  };
+      const url = `https://www.eventbriteapi.com/v3/events/search?token=${process.env.EVENTBRITE_API_KEY}&location.address=${request.query.data.formatted_query}`;
 
-  Yelp.lookup(handler);
+      superagent.get(url)
+        .then(result => {
+          const events = result.body.events.map(eventData => {
+            const event = new Event(eventData);
+            event.save(request.query.data.id);
+            return event;
+          });
 
+          response.send(events);
+        })
+        .catch(error => handleError(error, response));
+    }
+  });
 }
 
-// Yelp Constructor/Normalizer
+
+// #endregion EVENT
+
+
+// #region -------------------- YELP --------------------
+
 function Yelp(business) {
   this.name = business.name;
   this.url = business.url;
@@ -224,75 +262,11 @@ function Yelp(business) {
   this.price = business.price;
 }
 
-// Instance Method: Save a location to the DB
-Yelp.prototype.save = function (id) {
-  const SQL = `INSERT INTO yelps (name, url, image_url, rating, price, location_id) VALUES ($1, $2, $3, $4, $5, $6);`;
-  const values = Object.values(this);
-  values.push(id);
-  client.query(SQL, values);
-};
-
-Yelp.lookup = function (handler) {
-  const SQL = `SELECT * FROM yelps WHERE location_id=$1;`;
-  client.query(SQL, [handler.location.id])
-    .then(result => {
-      if (result.rowCount > 0) {
-        console.log('Got data from SQL');
-        handler.cacheHit(result);
-      } else {
-        console.log('Got data from API');
-        handler.cacheMiss();
-      }
-    })
-    .catch(error => handleError(error));
-};
+// #endregion YELP
 
 
-Yelp.fetch = function (location) {
-  const url = `https://api.yelp.com/v3/businesses/search?term="restaurants"&latitude=${location.latitude}&longitude=${location.longitude}`;
+// #region -------------------- MOVIE --------------------
 
-  return superagent.get(url)
-    .set('Authorization', `Bearer ${process.env.YELP_API_KEY}`)
-    .then(result => {
-      console.log('STARDATE2060', result.body.businesses[0].name);
-      const yelpBusinesses = result.body.businesses.map(business => {
-        const newYelp = new Yelp(business);
-        newYelp.save(location.id);
-        return newYelp;
-      });
-      return yelpBusinesses;
-    });
-};
-
-
-// ---------- EVENTS ------------- //
-
-
-function getEvents(request, response) {
-  const url = `https://www.eventbriteapi.com/v3/events/search?location.latitude=${request.query.data.latitude}&location.longitude=${request.query.data.longitude}&token=${process.env.EVENTBRITE_API_KEY}`
-
-  return superagent.get(url)
-    .then(res => {
-      const eventEntries = res.body.events.map(eventObj => {
-        return new Event(eventObj);
-      })
-      response.send(eventEntries);
-    })
-    .catch(err => {
-      response.send(err);
-    });
-}
-
-
-
-
-
-function Event(eventObj) {
-  this.link = eventObj.url;
-  this.name = eventObj.name.text;
-  this.event_date = Date(eventObj.start.local).split(' ').slice(0, 4).join(' ');
-  this.summary = eventObj.summary;
-}
 
 function Movie(eventObj) {
   this.title = eventObj.url;
@@ -303,6 +277,11 @@ function Movie(eventObj) {
   this.average_votes = eventObj.summary;
   this.popularity = eventObj.summary;
 }
+
+// #endregion MOVIE
+
+
+// #region -------------------- TRAIL --------------------
 
 function Trail(eventObj) {
   this.name = eventObj.url;
@@ -318,7 +297,6 @@ function Trail(eventObj) {
 }
 
 
-
-
+// #endregion TRAIL
 
 
