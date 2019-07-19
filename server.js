@@ -27,7 +27,7 @@ client.on('error', err => console.error(err));
 app.get('/location', getLocation);
 app.get('/weather', getWeather);
 app.get('/events', getEvents);
-// app.get('/yelp', getYelp);
+app.get('/yelp', getYelp);
 app.get('/movies', getMovies);
 // app.get('/trails', getTrails);
 
@@ -49,6 +49,7 @@ function handleError(err, res) {
 function lookup(options) {
   const SQL = `SELECT * FROM ${options.tableName} WHERE location_id=$1;`;
   const values = [options.location];
+  console.log(options.tableName, options.location);
 
   client.query(SQL, values)
     .then(result => {
@@ -273,7 +274,7 @@ Movie.tableName = 'movies';
 Movie.lookup = lookup;
 
 Movie.prototype.save = function (location_id) {
-  const SQL = `INSERT INTO ${this.tableName} (title, overview, average_votes, total_votes, image_url, popularity, released_on, location_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`;
+  const SQL = `INSERT INTO ${Movie.tableName} (title, overview, average_votes, total_votes, image_url, popularity, released_on, location_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`;
   const values = [this.title, this.overview, this.average_votes, this.total_votes, this.image_url, this.popularity, this.released_on, location_id];
 
   client.query(SQL, values);
@@ -316,11 +317,59 @@ function getMovies(request, response) {
 
 function Yelp(business) {
   this.name = business.name;
-  this.url = business.url;
   this.image_url = business.image_url;
-  this.rating = business.rating;
   this.price = business.price;
+  this.rating = business.rating;
+  this.url = business.url;
 }
+
+
+Yelp.tableName = 'yelps';
+Yelp.lookup = lookup;
+
+Yelp.prototype.save = function (location_id) {
+  const SQL = `INSERT INTO ${Yelp.tableName} (name, image_url, price, rating, url, location_id) VALUES ($1, $2, $3, $4, $5, $6);`;
+  const values = [this.name, this.image_url, this.price, this.rating, this.url, location_id];
+
+  client.query(SQL, values);
+};
+
+
+function getYelp(request, response) {
+  console.log('getYelp() Called');
+  console.log('getYelp() request: ', request.query.data);
+
+  Yelp.lookup({
+    tableName: Yelp.tableName,
+
+    location: request.query.data.id,
+
+    cacheHit: function (result) {
+      response.send(result.rows);
+    },
+
+    cacheMiss: function () {
+      console.log('getYelp() cacheMiss() Called');
+      console.log('yelp location: ', request.query.data.id);
+      const url = `https://api.yelp.com/v3/businesses/search?term="restaurants"&latitude=${location.latitude}&longitude=${location.longitude}`;
+
+      superagent.get(url)
+        .set('Authorization', `Bearer ${process.env.YELP_API_KEY}`)
+        .then(result => {
+          console.log('getYelpAPI results: ', result.body.businesses);
+          const yelpBusinesses = result.body.businesses.map(business => {
+            const newYelp = new Yelp(business);
+            newYelp.save(request.query.data.id);
+            return newYelp;
+          });
+
+          response.send(yelpBusinesses);
+        })
+        .catch(error => handleError(error, response));
+    }
+  });
+}
+
 
 // #endregion YELP
 
