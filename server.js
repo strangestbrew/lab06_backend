@@ -63,7 +63,7 @@ function getLocation(request,response) {
 //Location Constructor
 function Location(query, res) {
   this.search_query = query;
-  this.formatted_query = res.results.formatted_address;
+  this.formatted_query = res.formatted_address;
   this.latitude = res.geometry.location.lat;
   this.longitude = res.geometry.location.lng;
 }
@@ -107,7 +107,7 @@ Location.lookupLocation = (handler) => {
 
 //saving locations to database
 Location.prototype.save = function() {
-  let SQL = `INSERT INTO locations(serch_query, formatted_query, latitude, longitude)VALUES($1,$2,$3,$4)RETURNING id`;
+  let SQL = `INSERT INTO locations(search_query, formatted_query, latitude, longitude)VALUES($1,$2,$3,$4)RETURNING id`;
   let values = Object.values(this);
   return client.query(SQL,values);
 };
