@@ -64,7 +64,6 @@ function getLocation(request,response) {
 function Location(query, res) {
   console.log("Im the problem");
   this.search_query = query;
-  //throwing errors in ubuntu terminal
   this.formatted_query = res.formatted_address;
   this.latitude = res.geometry.location.lat;
   this.longitude = res.geometry.location.lng;
