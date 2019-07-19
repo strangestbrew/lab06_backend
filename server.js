@@ -21,9 +21,9 @@ app.use(cors());
 
 
 // API Routes (handlers)
-app.get('/', (req, res) => {
+app.get('/', (request, response) => {
   console.log('slash route');
-  res.send('slash route');
+  response.send('slash route');
 });
 
 app.get('/location', getLocation);
