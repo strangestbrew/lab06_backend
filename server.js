@@ -96,7 +96,6 @@ Location.fetchLocation = (query) => {
             location.id = result.rows[0].id;
             return location;
           });
-        return location;
       }
     });
 };
