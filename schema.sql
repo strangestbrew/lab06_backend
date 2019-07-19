@@ -29,6 +29,7 @@ CREATE TABLE events (
   name VARCHAR(255),
   event_date VARCHAR(255),
   summary VARCHAR(255),
+  created_at BIGINT,
   location_id INTEGER NOT NULL,
   FOREIGN KEY (location_id) REFERENCES locations (id)
 );
@@ -39,7 +40,8 @@ CREATE TABLE yelps (
     image_url VARCHAR(255), 
     price VARCHAR(255), 
     rating NUMERIC(10, 7), 
-    url VARCHAR(255), 
+    url VARCHAR(255),
+    created_at BIGINT,
     location_id INTEGER NOT NULL,
     FOREIGN KEY (location_id) REFERENCES locations (id)
 );
@@ -52,7 +54,8 @@ CREATE TABLE movies (
     released_on VARCHAR(255), 
     total_votes VARCHAR(255), 
     average_votes VARCHAR(255), 
-    popularity VARCHAR(255), 
+    popularity VARCHAR(255),
+    created_at BIGINT,
     location_id INTEGER NOT NULL,
     FOREIGN KEY (location_id) REFERENCES locations (id)
 );
@@ -68,7 +71,8 @@ CREATE TABLE trails (
     condition_time VARCHAR(255), 
     stars VARCHAR(255), 
     condition_date VARCHAR(255), 
-    summary VARCHAR(255), 
+    summary VARCHAR(255),
+    created_at BIGINT,
     location_id INTEGER NOT NULL,
     FOREIGN KEY (location_id) REFERENCES locations (id)
 );
