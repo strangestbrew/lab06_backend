@@ -64,8 +64,8 @@ function getLocation(request,response) {
 function Location(query, res) {
   this.search_query = query;
   this.formatted_query = res.results.formatted_address;
-  this.latitude = res.results.geometry.location.lat;
-  this.longitude = res.results.geometry.location.lng;
+  this.latitude = res.geometry.location.lat;
+  this.longitude = res.geometry.location.lng;
 }
 
 Location.fetchLocation = query => {
